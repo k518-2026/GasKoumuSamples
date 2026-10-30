@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 1.2em; line-height: 1.7; color: #16233c; }
+    h1 { font-size: 1.4em; border-bottom: 3px solid #22578f; padding-bottom: .3em; }
+    label { display: block; margin-top: 1em; font-weight: bold; }
+    input, select, button { font-size: 1em; padding: .4em; margin-top: .3em; }
+    button { margin-top: 1.2em; }
+    #結果 { margin-top: 1em; font-weight: bold; }
+    li { margin: .2em 0; }
+  </style>
+</head>
+<body>
+  <h1>備品・教室の予約</h1>
+
+  <label for="日付">日付</label>
+  <input type="date" id="日付">
+
+  <label for="場所">場所・備品</label>
+  <select id="場所"></select>
+
+  <label for="時間帯">時間帯</label>
+  <select id="時間帯"></select>
+
+  <label for="予約者">予約する人の名前</label>
+  <input type="text" id="予約者" maxlength="20">
+
+  <button id="予約ボタン">予約する</button>
+  <div id="結果"></div>
+
+  <h2>この日の予約の状況</h2>
+  <ul id="状況"></ul>
+
+  <script>
+    // 画面に出す文字は、すべて textContent で入れます（HTMLとして解釈させないため）。
+    var 選択肢 = { 場所: [], 時間帯: {} };
+
+    function 場所を入れる() {
+      var 欄 = document.getElementById('場所');
+      選択肢.場所.forEach(function (名前) {
+        var o = document.createElement('option');
+        o.value = 名前;
+        o.textContent = 名前;
+        欄.appendChild(o);
+      });
+      時間帯を入れる();
+    }
+
+    function 時間帯を入れる() {
+      var 欄 = document.getElementById('時間帯');
+      欄.textContent = '';
+      var 場所 = document.getElementById('場所').value;
+      (選択肢.時間帯[場所] || []).forEach(function (名前) {
+        var o = document.createElement('option');
+        o.value = 名前;
+        o.textContent = 名前;
+        欄.appendChild(o);
+      });
+    }
+
+    function 状況を更新する() {
+      var 日付 = document.getElementById('日付').value;
+      var ul = document.getElementById('状況');
+      ul.textContent = '';
+      if (!日付) return;
+      google.script.run.withSuccessHandler(function (一覧) {
+        if (一覧.length === 0) {
+          var li0 = document.createElement('li');
+          li0.textContent = 'この日の予約は、まだありません。';
+          ul.appendChild(li0);
+        }
+        一覧.forEach(function (x) {
+          var li = document.createElement('li');
+          li.textContent = x.場所 + '　' + x.時間帯 + '　' + x.予約者;
+          ul.appendChild(li);
+        });
+      }).予約状況を返す(日付);
+    }
+
+    document.getElementById('場所').addEventListener('change', 時間帯を入れる);
+    document.getElementById('日付').addEventListener('change', 状況を更新する);
+    document.getElementById('予約ボタン').addEventListener('click', function () {
+      var 結果 = document.getElementById('結果');
+      結果.textContent = '送っています…';
+      google.script.run
+        .withSuccessHandler(function (r) {
+          結果.textContent = r.message;
+          状況を更新する();
+        })
+        .withFailureHandler(function (e) {
+          結果.textContent = 'うまくいきませんでした。先生に知らせてください。';
+        })
+        .予約を登録する(
+          document.getElementById('日付').value,
+          document.getElementById('場所').value,
+          document.getElementById('時間帯').value,
+          document.getElementById('予約者').value
+        );
+    });
+
+    google.script.run.withSuccessHandler(function (s) {
+      選択肢 = s;
+      場所を入れる();
+    }).予約画面の選択肢を返す();
+  </script>
+</body>
+</html>
